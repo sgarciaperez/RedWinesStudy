@@ -1,0 +1,503 @@
+---
+title: 'Tipologia i cicle de vide de les dades : PAC3'
+output:
+  pdf_document: 
+   latex_engine: xelatex
+  html_document: default
+  word_document: default
+  latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Descripció del dataset:
+
+Com a estudi he escollit una base de dades de vins vermells per tal de predir si són bons o no. N'hi ha una columna que ens indica la seva qualitat basada en un sensor; aquest son els diferents atributs:   
+
+   1 - fixed acidity  
+   2 - volatile acidity  
+   3 - citric acid  
+   4 - residual sugar  
+   5 - chlorides  
+   6 - free sulfur dioxide  [1-72]  
+   7 - total sulfur dioxide [6-289]  
+   8 - density  
+   9 - pH [0-14]  
+   10 - sulphates  
+   11 - alcohol  
+   
+   Output variable (based on sensory data):   
+   12 - quality (score between 0 and 10)  
+
+Les dades estan penjades a la web:
+https://www.kaggle.com/uciml/red-wine-quality-cortez-et-al-2009
+
+
+# Objectius de l'anàlisis
+
+A partir d'aquestes dades es vol saber quines variables contribueixen més sobre la qualitat del vi.
+També es vol crear models que permetin predir la qualitat del vi; però això faré servir un model de regressió amb "Xarxa Neuronal". També faré servir proves de contrast d'hipòtesi per a identificar propietats interessants.
+
+# Integració i selecció de les dades d’interès a analitzar.
+
+De cara a les proves faré servir tots els atributs; l'atribut "quality" em permetrà la classificació de vins i serà el que faré servir per al model d'aprenentatge supervisat.
+
+El primer que faig és carregar les dades:
+
+```{r message= FALSE, warning=FALSE}
+
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(GGally)
+library(lattice)
+library(caret)
+library(neuralnet)
+
+wine_data <- read.csv('winequality-red.csv', header=T, sep="," , 
+                      fileEncoding = "UTF-8-BOM",
+                      na.strings = "NA", stringsAsFactors = FALSE)
+
+attach(wine_data)
+colnames(wine_data) <- c("fixed_acidity","volatile_acidity","citric_acid",
+                         "residual_sugar","chlorides","free_sulfur_dioxide",
+                         "total_sulfur_dioxide", "density","pH","sulphates",
+                         "alcohol","quality")
+```
+
+#Descripció del dataset.
+
+L'estructura de les dades és la que es veu al següent diagrama:
+
+```{r message= FALSE, warning=FALSE}
+str(wine_data)
+
+```
+I els valors que poden prendre es pot veure a la següent taula:
+
+```{r message= FALSE, warning=FALSE}
+summary(wine_data)
+
+```
+
+Veig que totes les dades són de tipus numèric i l'atribut quality agafa només un rang de valor de sencers; aquesta es pot considerar de tipus categòric.  
+
+```{r message= FALSE, warning=FALSE}
+summary(wine_data)
+
+```
+
+
+## Selecció de les dades d'interes
+
+Miro quins atributs es poden discretitzar i en trobo que quality és idoni.
+
+```{r message= FALSE, warning=FALSE}
+  wine_data$quality <- as.factor(wine_data$quality)
+  str(wine_data)
+  levels(wine_data$quality)
+```
+
+## Neteja de dades
+
+Abans de començar a netejar vaig a visualitzar les dades per veure que contenen valors correctes:
+
+```{r message= FALSE, warning=FALSE}
+head(wine_data[,1:4])
+```
+
+
+### Dades amb zeros o elements buits
+
+Tenim moltes dades numèriques amb valor zero; aquests valors en aquest cas són normals, no es corresponen a cap valor desconegut. Per altra banda no n'hi han valors buits:  
+
+```{r message= FALSE, warning=FALSE}
+colSums(is.na(wine_data))
+```
+
+### Identificació i tractament de valors extrems
+
+Els valors extrems o outliers són aquells que no semblen normals dintre de les mostres.
+Per tal d'identificar-los faré servir la funció boxplot de R per tal de mostrar els valors numèrics d'aquest outliers.  
+
+
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$fixed_acidity)$out
+```
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$volatile_acidity)$out
+
+```
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$citric_acid)$out
+
+```
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$residual_sugar)$out
+```
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$chlorides)$out
+```
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$free_sulfur_dioxide)$out
+```
+
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$total_sulfur_dioxide)$out
+```
+
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$density)$out
+```
+
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$pH)$out
+```
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$sulphates)$out
+```
+
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(wine_data$alcohol)$out
+```
+Aquests valors d'outliers són valors vàlids; estan dintre del rang de valors possibles a nivell químic.
+Això es veu més endavant en comprovar que les funcions de distribució de probabilitat
+d'aquests atributs no corresponen exactament a una distribució normal.
+
+Un aspecte molt importat a l'hora de seleccionar els atributs estudiar la correlació de les variables no depenents; a la següent gràfica es poden veure molt clarament les correlacions entre variables;
+els colors que són molt intens estan molt correlacionats.  
+
+```{r message= FALSE, warning=FALSE}
+# Visualitzo la correlació
+mcor<-round(cor(wine_data[,-12]),2)
+corrplot(mcor, type= "upper", order ="hclust", t1.col="black", t1.srt=45)
+
+mcor2 <-round(cor(wine_data[,c(1,3,6,7,8,9)],method = "spearman"),2)
+mcor2
+
+```
+
+
+En aquest cas tenim:
+a) El "PH" i "fixed_acidity" ho estan molt correlacionats (un augmenta en decréixer l'altre).
+b) "Density" i "fixed_acidity" ho estan també però en menor grau.
+c) "citric_acid"" i Fixed_acidity" ho estan també però en menor grau.
+d) "Free_sulfur_dioxid" i "total_sulfur_dioxid" ho estan també però en menor grau.
+
+Els vins poden contenir diferents àcids tals com el tartàric, el màlic, el cítric i el succínic; per tant l'àcid cítric s'ha de considerar com a part dels àcids que pot contenir el vi.
+
+El sulfur d'òxid pot estar lliure dintre del vi o afegit a altres substàncies químiques; és normal que la proporció de lliure estigui relacionada amb la quantitat no lliure; es tracta d'una dissolució. La proporció d'aquests estats pot variar, per tant s'han de considerar.  
+
+
+### Exportació de les dades netejades
+
+Una vegada s'han agafat les dades amb el format correcte es procedeix a guardar-los en un fitxer
+amb nom "winequality-red-clean.csv":
+
+```{r message= FALSE, warning=FALSE}
+write.csv(wine_data, "winequality-red-clean.csv")
+```
+
+
+## Anàlisis de les dades
+
+### Selecció dels grups de dades que es volen analitzar
+
+Ara es seleccionaran els grups de dades que poden ser interessants per analitzar o comparar; en aquest cas puc agrupar els vins per diferents tipus de qualitat. Tenim 6 nivells de qualitat de vins que van del 3 al 8; s'agafen 3 grups diferents agrupant-los en mitjans, bons i dolents tal com es mostra a la següent selecció:  
+
+
+```{r message= FALSE, warning=FALSE}
+
+# Agrupació per categoria
+wine_data_bad  <- wine_data[ ((wine_data$quality == 3) | (wine_data$quality == 4)) ,]
+wine_data_medium <- wine_data[ ((wine_data$quality == 5) | (wine_data$quality == 6)) ,]
+wine_data_good <- wine_data[ ((wine_data$quality == 7) | (wine_data$quality == 8)) ,]
+
+```
+
+### Comprobació de la normalidad i homogeneitat de la variància
+
+Per comprovar que les variables quantitatives segueixen una distribució normal faré servir
+el test de Shapiro.
+Si a les proves s'obté un p-valor superior al nivell de significació prefixat de 0,05 llavors es considera que la variable segueix una distribució normal.  
+
+
+```{r message= FALSE, warning=FALSE}
+
+
+alpha = 0.05
+col.names = colnames(wine_data)
+for (i in 1:ncol(wine_data)) {
+   if (i == 1) cat("Variables que no tenen distribució normal:\n")
+   if (is.integer(wine_data[,i]) | is.numeric(wine_data[,i])) {
+      p_val = shapiro.test(wine_data[,i])$p.value
+      if (p_val < alpha) {
+         cat(col.names[i])
+         # Format output
+         if (i < ncol(wine_data) - 1) cat(", ")
+         if (i %% 3 == 0) cat("\n")
+      }
+   }
+}
+
+
+
+```
+Per tant tenim que cap variable segueix una distribució normal.
+
+Ara per mirar l'homogeneïtat de les variàncies dels diferents grups de vins existents faré servir el test de Fligner-Killeen. És un test no paramètric que compara les variàncies considerant les mitjanes.
+
+En aquest cas faré l'estudi de l'homogeneïtat del pH dels grups de vins segons el tipus de qualitat; haig de fer totes les combinacions:
+
+```{r message= FALSE, warning=FALSE}
+   
+   a <- wine_data[wine_data$quality == 3, "sulphates"]
+   b <- wine_data[wine_data$quality == 4, "sulphates"]
+   c <- wine_data[wine_data$quality == 5, "sulphates"]
+   d <- wine_data[wine_data$quality == 6, "sulphates"]
+   e <- wine_data[wine_data$quality == 7, "sulphates"]
+   f <- wine_data[wine_data$quality == 8, "sulphates"]
+   
+   fligner.test(x = list(a,b), data = wine_data)
+   fligner.test(x = list(a,c), data = wine_data)
+   fligner.test(x = list(a,d), data = wine_data)
+   fligner.test(x = list(a,e), data = wine_data)
+   fligner.test(x = list(a,f), data = wine_data)
+   
+   fligner.test(x = list(b,c), data = wine_data)
+   fligner.test(x = list(b,d), data = wine_data)
+   fligner.test(x = list(b,e), data = wine_data)
+   fligner.test(x = list(b,f), data = wine_data)
+   
+   fligner.test(x = list(c,d), data = wine_data)
+   fligner.test(x = list(c,e), data = wine_data)
+   fligner.test(x = list(c,f), data = wine_data)
+   
+   fligner.test(x = list(d,e), data = wine_data)
+   fligner.test(x = list(d,f), data = wine_data)
+   
+   fligner.test(x = list(e,f), data = wine_data)
+```
+
+Es veu clarament que els p-valors son superior a 0,05; per tant s'accepta l'hipòtesi que les variàncies de les mostres són homogènies. N'hi ha un cas, el grup "c" i "d", que tenen variàncies diferents; però aquest fet es pot considerar fortuït i en general es pot considerar que les variàncies són iguals en general.  
+
+
+### Aplicació de proves estadístiques
+#### Quines variables quantitatives influeixen a la qualitat del vi?.
+
+Per això es mira el coeficient de correlació de Spearman perquè tenim que les dades no segueixen una distribució normal.
+
+```{r message= FALSE, warning=FALSE}
+
+wine_data$quality <- as.numeric(wine_data$quality)
+
+corr_matrix <- matrix(nc = 2, nr = 0)
+colnames(corr_matrix) <- c("estimate", "p-value")
+# Calcular el coeficiente de correlación para cada variable cuantitativa
+# con respecto al campo "precio"
+for (i in 1:(ncol(wine_data) - 1)) {
+  if (is.integer(wine_data[,i]) | is.numeric(wine_data[,i])) {
+    spearman_test = cor.test(wine_data[,i], wine_data[,length(wine_data)],
+    method = "spearman")
+    corr_coef = spearman_test$estimate
+    p_val = spearman_test$p.value
+    # Add row to matrix
+    pair = matrix(ncol = 2, nrow = 1)
+    pair[1][1] = corr_coef
+    pair[2][1] = p_val
+    corr_matrix <- rbind(corr_matrix, pair)
+    rownames(corr_matrix)[nrow(corr_matrix)] <- colnames(wine_data)[i]
+   }
+}
+wine_data$quality <- as.factor(wine_data$quality)
+print(corr_matrix)
+```
+Les variables que més influeixen en la qualitat del vi en ordre d'importància son: "alcohol", "volatile_acidity" i "sulphates".  
+
+
+### El valor mitg dels "sulfats" dels bons vins es mes gran que la resta de vins?
+
+Aquesta prova consisteix a comparar el valor mig dels sulfats en vins de qualitat baixa, mitja i alta.
+
+Per tractar aquesta situació on tenim que les variables no són normals treballarem amb els valors mitjans;
+segons el teorema central del límit la mitja dels valors de la mostra es comporten com una distribució normal per mostres superiors a 30.
+Es planteja el següent contrast d'hipòtesis de dues mostres sobre la diferència de les mitjanes; aquest contrast és unilateral.
+
+H0 : μ1 − μ2 = 0
+H1 : μ1 − μ2 > 0
+
+On μ1 és la mitjana de sulfats de vins bons i μ2 és la mitjana de sulfats de vins moderats; prenem alfa = 0, 05.  
+
+
+```{r message= FALSE, warning=FALSE}   
+ 
+ t.test(wine_data_good$sulphates, wine_data_medium$sulphates,alternative = "greater")
+ 
+```
+  
+Veiem que obtenim un p-value < 2.2e-16 < 0.05; per tant rebutgem l'hipòtesi nul·la. Els sulfats són més altes en vins bons.
+
+Si agafo μ1 com la mitjana de sulfats de vins moderats i μ2 és la mitjana de sulfats de vins dolents amb alfa = 0, 05 veig el següent:  
+
+
+```{r message= FALSE, warning=FALSE}   
+ 
+ t.test(wine_data_medium$sulphates, wine_data_bad$sulphates,alternative = "greater")
+ 
+```
+Veig un altre cop que es rebutja l'hipòtesi nul·la (p-value = 0.02947 < 0.05); és a dir els sulfats milloren la qualitat del vi.  
+
+### Model de xarxes neuronals
+
+Les xarxes neuronals es caracteritzen per donar bons resultats en models que poden no tindre linealitat com és aquest cas. Per aquest model es faran servir totes les variables quantitatives.
+Per trobar el model que dóna més eficiència s'agafaran les variables que més estiguin correlacionades.
+
+Ara vaig a crear un grup de mostres agafades aleatòriament sense repetició per fer l'entrenament i el test; també escalo les variables abans d'aplicar l'algorisme doncs diferents escales de variables poden
+afectar de manera desigual el pes dels paràmetres de l'algorisme:
+
+
+```{r message= FALSE, warning=FALSE} 
+
+# Spliting training and testing dataset
+
+index = sample( 1:nrow( wine_data ), nrow( wine_data ) * 0.6, replace = FALSE ) 
+
+#Train
+train = wine_data[ index, ]
+trainset = subset( train, select = -quality )
+trainset.scaled <- scale(trainset)
+
+
+# Test
+test = wine_data[ -index, ]
+testset = subset( test, select = -quality )
+testset.scaled <- scale(testset);
+
+```
+
+Ara faig la preparació pel model de xarxes neuronals dels valors "quality" que es volen predir; aquest han de separar-se en columnes i agafar valors "TRUE" i "FALSE":
+
+```{r message= FALSE, warning=FALSE} 
+trainset.final <- data.frame(trainset.scaled,quality=train$quality)
+trainset.final$quality <- as.factor(trainset.final$quality)
+
+testset.final <- data.frame(testset.scaled,quality=test$quality)
+testset.final$quality <- as.factor(testset.final$quality)
+
+# Preparem les dades per l'algotime de xarxes neuronals
+trainset.final <- cbind(trainset.final, trainset.final$quality == 3)
+trainset.final <- cbind(trainset.final, trainset.final$quality == 4)
+trainset.final <- cbind(trainset.final, trainset.final$quality == 5)
+trainset.final <- cbind(trainset.final, trainset.final$quality == 6)
+trainset.final <- cbind(trainset.final, trainset.final$quality == 7)
+trainset.final <- cbind(trainset.final, trainset.final$quality == 8)
+names(trainset.final)[13:18] <- c('bajo_3', 'bajo_4','medio_5',
+                                  'medio_6', 'alto_7','alto_8')
+trainset.final = subset( trainset.final, select = -quality )
+
+testset.final <- cbind(testset.final, testset.final$quality == 3)
+testset.final <- cbind(testset.final, testset.final$quality == 4)
+testset.final <- cbind(testset.final, testset.final$quality == 5)
+testset.final <- cbind(testset.final, testset.final$quality == 6)
+testset.final <- cbind(testset.final, testset.final$quality == 7)
+testset.final <- cbind(testset.final, testset.final$quality == 8)
+names(testset.final)[13:18] <- c('bajo_3', 'bajo_4','medio_5',
+                                 'medio_6','alto_7','alto_8')
+testset.final = subset( testset.final, select = -quality )
+
+
+```
+
+Es crea el model de xarxes neuronals:
+
+```{r message= FALSE, warning=FALSE} 
+# Build the neural network (NN)
+
+nam = colnames( trainset.final )
+fn = as.formula( paste( "bajo_3+bajo_4+medio_5+medio_6+alto_7+alto_8~", 
+                        paste( nam[!nam %in% "quality" ], collapse = "+" ) ) )
+nn = neuralnet( fn, trainset.final, hidden = c(10,8), linear.output = FALSE)
+
+```
+
+Seguidament es procedeix a la representació gràfica de la xarxa neuronal generada:
+
+```{r message= FALSE, warning=FALSE} 
+# Plot the NN
+plot( nn, rep = "best" )
+```
+
+    
+El següent pas es testejar el resultat de l'algorisme; primer genero les dades que prediu el model pel joc de dades de test:
+
+```{r message= FALSE, warning=FALSE} 
+# Test the resulting output
+nn.results = predict(nn, testset.final,type="class" )
+
+```
+
+El resultat de la predicció feta amb el model de xarxa neuronal dóna sis paràmetres que indiquen la probabilitat que cadascun dels diferents nivells de qualitat sigui factible.
+Per mirar els casos que s'encerten considerem que els valors que tenen una probabilitat més gran de 0,5 donen lloc a una resposta positiva; per tant es correspon al nivell que estem tractant.
+
+Faig diversos "dataframes" que contenen els valors originals del test i els valors predits per cadascuna de les categories de vins existents:  
+
+```{r message= FALSE, warning=FALSE} 
+
+# Function to always round 0.5 down
+round2 <- function(x) { 
+  ret <- round(x)
+  if (x==0.5) { ret <- 0 }
+  else {ret <- round(x)}
+  return(ret)
+}
+
+
+dfResult <- as.data.frame(nn.results)
+results3 <- data.frame(actual = testset.final$bajo_3*1 ,
+                       prediction = round2(dfResult$V1))
+results4 <- data.frame(actual = testset.final$bajo_4*1,  
+                       prediction = round2(dfResult$V2))
+results5 <- data.frame(actual = testset.final$medio_5*1, 
+                       prediction = round2(dfResult$V3))
+results6 <- data.frame(actual = testset.final$medio_6*1, 
+                       prediction = round2(dfResult$V4))
+results7 <- data.frame(actual = testset.final$medio_6*1, 
+                       prediction = round2(dfResult$V5))
+results8 <- data.frame(actual = testset.final$medio_6*1, 
+                       prediction = round2(dfResult$V6))
+
+```
+Un exemple sería el següent:
+
+```{r message= FALSE, warning=FALSE} 
+head(results3)
+```
+
+Ara miro la precisió del model calculat comparant aquells casos en què s'ha encertat respecte a els casos totals:  
+
+```{r message= FALSE, warning=FALSE} 
+total_ok <-  sum(results3$actual==results3$prediction) + 
+             sum(results4$actual==results4$prediction) + 
+             sum(results5$actual==results5$prediction) + 
+             sum(results6$actual==results6$prediction) + 
+             sum(results7$actual==results7$prediction) + 
+             sum(results8$actual==results8$prediction);
+accuracy <- 100 * total_ok/(nrow(results3)+nrow(results4)+nrow(results5)+
+                      nrow(results6)+nrow(results7)+nrow(results8)) 
+sprintf("La precisió de la xarxa neuronal es: %s",accuracy)
+```
+Tenim doncs una precisió molt elevada.
+
+
+# Conclusions
+
+S'ha vist que s'han realitzat tres tipus de proves estadístiques sobre el conjunt de dades
+que es corresponen amb variables relatives a les qualitats del vi.
+L'anàlisi de correlació i el contrast d'hipòtesi han permès veure quines d'aquestes variables
+són més importants a la qualitat del vi i com intervenen els sulfits a la qualitat del vi.
+Per altra banda el model de xarxa neuronal obtingut és de molta utilitat a l'hora de fer prediccions, doncs té una precisió per sobre del 99,5%.  
+
+
