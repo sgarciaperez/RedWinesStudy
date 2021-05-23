@@ -1,2 +1,2 @@
 # RedWinesStudy
-Se pretende realizar una estudio sobre los criterios de selección de calidad de los vinos rojos
+L'objectiu d’aquesta pràctica es la realització d'un estudi sobre els criteris de selección de vins vermells
