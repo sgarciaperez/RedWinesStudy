@@ -56,6 +56,7 @@ library(GGally)
 library(lattice)
 library(caret)
 library(neuralnet)
+library("kableExtra")
 
 wine_data <- read.csv('winequality-red.csv', header=T, sep="," , 
                       fileEncoding = "UTF-8-BOM",
@@ -126,46 +127,111 @@ Per tal d'identificar-los faré servir la funció boxplot de R per tal de mostra
 
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$fixed_acidity)$out
+boxplot(wine_data$fixed_acidity,main="Fixed acidity Weight",col="gray")
 ```
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$volatile_acidity)$out
+boxplot(wine_data$volatile_acidity,main="Volatile acidity",col="gray")
 
 ```
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$citric_acid)$out
+boxplot(wine_data$citric_acid,main="Citric acid",col="gray")
 
 ```
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$residual_sugar)$out
+boxplot(wine_data$residual_sugar,main="Residual sugar",col="gray")
 ```
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$chlorides)$out
+boxplot(wine_data$chlorides,main="Chlorides",col="gray")
 ```
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$free_sulfur_dioxide)$out
+boxplot(wine_data$free_sulfur_dioxide,main="Free sulfur dioxide",col="gray")
 ```
 
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$total_sulfur_dioxide)$out
+boxplot(wine_data$total_sulfur_dioxide,main="Total sulfur dioxide",col="gray")
 ```
 
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$density)$out
+boxplot(wine_data$density,main="Density",col="gray")
 ```
 
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$pH)$out
+boxplot(wine_data$pH,main="pH",col="gray")
 ```
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$sulphates)$out
+boxplot(wine_data$sulphates,main="Sulphates",col="gray")
 ```
 
 ```{r message= FALSE, warning=FALSE}
 boxplot.stats(wine_data$alcohol)$out
+boxplot(wine_data$alcohol,main="Alcohol",col="gray")
 ```
 Aquests valors d'outliers són valors vàlids; estan dintre del rang de valors possibles a nivell químic.
 Això es veu més endavant en comprovar que les funcions de distribució de probabilitat
 d'aquests atributs no corresponen exactament a una distribució normal.
+
+Faig una reprepresentació del l'histograma de les variables per tal de veure com es la funció de distribució d'aquestes i la contribució d'aquestes a la qualitat del vi:
+
+
+```{r message= FALSE, warning=FALSE}
+
+## Analitzem
+
+filas=dim(wine_data)[1]
+
+ggplot(data = wine_data[1:filas,],aes(x=fixed_acidity,fill=quality))+ geom_histogram(binwidth = 0.1)
+ggplot(data = wine_data[1:filas,],aes(x=volatile_acidity,fill=quality))+ geom_histogram(binwidth = 0.01)
+ggplot(data = wine_data[1:filas,],aes(x=citric_acid,fill=quality))+ geom_histogram(binwidth = 0.01)
+ggplot(data = wine_data[1:filas,],aes(x=residual_sugar,fill=quality))+geom_histogram(binwidth = 0.1)
+ggplot(data = wine_data[1:filas,],aes(x=chlorides,fill=quality))+geom_histogram(binwidth = 0.01)
+ggplot(data = wine_data[1:filas,],aes(x=free_sulfur_dioxide,fill=quality))+geom_histogram(binwidth = 1)
+ggplot(data = wine_data[1:filas,],aes(x=total_sulfur_dioxide,fill=quality))+geom_histogram(binwidth = 1)
+ggplot(data = wine_data[1:filas,],aes(x=density,fill=quality))+ geom_histogram(binwidth = 0.0001)
+ggplot(data = wine_data[1:filas,],aes(x=pH,fill=quality))+geom_bar()
+ggplot(data = wine_data[1:filas,],aes(x=sulphates,fill=quality))+geom_bar()
+ggplot(data = wine_data[1:filas,],aes(x=alcohol,fill=quality))+geom_histogram(binwidth = 0.1)
+ggplot(data = wine_data[1:filas,],aes(x=quality,fill=quality))+geom_bar()
+
+
+```
+
+Clàrament es veu que la major part dels valors dels paràmetres que contribueixen a la qualitat del ví estan acotats en una serie de valors i no n'hi han valors gaire predominants (una excepció serien els clorures o "chlorides"); aquestes distribucions no son del tot normals.
+
+Ara vaig a mostrar gràfics QQ-plots per veure l'aproximació que tenen a la normalitat
+
+```{r message= FALSE, warning=FALSE}
+qqnorm(wine_data$fixed_acidity, main = "Fixed acidity",pch = 19, col = "gray50") 
+qqline(wine_data$fixed_acidity)
+qqnorm(wine_data$volatile_acidity, main = "Volatile acidity", pch = 19, col = "gray50") 
+qqline(wine_data$volatile_acidity)
+qqnorm(wine_data$citric_acid, main = "Citric acid", pch = 19, col = "gray50") 
+qqline(wine_data$citric_acid)
+qqnorm(wine_data$residual_sugar,  main = "Residual sugar", pch = 19, col = "gray50") 
+qqline(wine_data$residual_sugar)
+qqnorm(wine_data$chlorides, main = "Chlorides", pch = 19, col = "gray50") 
+qqline(wine_data$chlorides)
+qqnorm(wine_data$total_sulfur_dioxide,  main = "Sulfur dioxide",pch = 19, col = "gray50")
+qqline(wine_data$total_sulfur_dioxide)
+qqnorm(wine_data$density, pch = 19, main = "Density",col = "gray50") 
+qqline(wine_data$density)
+qqnorm(wine_data$pH, pch = 19, main = "pH", col = "gray50") 
+qqline(wine_data$pH)
+qqnorm(wine_data$sulphates, main = "Sulphates", pch = 19, col = "gray50") 
+qqline(wine_data$sulphates)
+qqnorm(wine_data$alcohol, main = "Alcohol", pch = 19, col = "gray50") 
+qqline(wine_data$alcohol)
+```
+La variable que mes s'aproxima a la normalitat es el pH.
+
 
 Un aspecte molt importat a l'hora de seleccionar els atributs estudiar la correlació de les variables no depenents; a la següent gràfica es poden veure molt clarament les correlacions entre variables;
 els colors que són molt intens estan molt correlacionats.  
@@ -350,6 +416,21 @@ Si agafo μ1 com la mitjana de sulfats de vins moderats i μ2 és la mitjana de 
 ```
 Veig un altre cop que es rebutja l'hipòtesi nul·la (p-value = 0.02947 < 0.05); és a dir els sulfats milloren la qualitat del vi.  
 
+
+### Representació dels resultats a partir de taules i gràfiques.
+
+El resultats de la correlació de les variables en format de taula ja s'han comentat a l'apartat anterior.
+Per altre banda per veure d'una manera visual el que he descobert sobre els sulfats a la qualitat del vins faig una representació gràfica de variació la distribució de la variable "sulphat" en funció de la qualitat del vi :
+
+```{r message= FALSE, warning=FALSE}   
+
+ggplot(data = wine_data[1:filas,],aes(x=sulphates,fill=quality))+geom_bar()
+
+```
+
+Visualment es pot veure com la mitja dels valors dels sulfats dels vins de millor qualitat son superior a les dels vins de qualitat inferior; la distribució de sulfats depen de la qualitat del vi de manera clara.
+
+
 ### Model de xarxes neuronals
 
 Les xarxes neuronals es caracteritzen per donar bons resultats en models que poden no tindre linealitat com és aquest cas. Per aquest model es faran servir totes les variables quantitatives.
@@ -491,7 +572,6 @@ sprintf("La precisió de la xarxa neuronal es: %s",accuracy)
 ```
 Tenim doncs una precisió molt elevada.
 
-
 # Conclusions
 
 S'ha vist que s'han realitzat tres tipus de proves estadístiques sobre el conjunt de dades
@@ -500,4 +580,16 @@ L'anàlisi de correlació i el contrast d'hipòtesi han permès veure quines d'a
 són més importants a la qualitat del vi i com intervenen els sulfits a la qualitat del vi.
 Per altra banda el model de xarxa neuronal obtingut és de molta utilitat a l'hora de fer prediccions, doncs té una precisió per sobre del 99,5%.  
 
+# Contribucions
 
+Han contribuit a aquesta pràctica:
+```{r message= FALSE, warning=FALSE} 
+
+contributions =data.frame(stringsAsFactors=FALSE,
+                         Contribuciones = c("Investigació prèvia", "Redacció de les respostes",                                                    "Desenvolupament codi"),
+                         Firma = c("Sergio García","Sergio García","Sergio García"))
+
+contributions %>% kable() %>% kable_styling()
+
+
+```
